@@ -1,0 +1,13 @@
+[package]
+name = "mame-dl2"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+console = "0.15.7"
+dirs = "5.0.1"
+im = "15.1.0"
+roxmltree = "0.18.1"
+subprocess = "0.2.9"
+toml = "0.8.2"
+xmlparser = "0.13.6"
