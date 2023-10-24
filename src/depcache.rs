@@ -1,13 +1,13 @@
 use subprocess::Exec;
 use roxmltree::{self, ParsingOptions};
-use std::{path::PathBuf, io::{self, Write}, collections::HashMap};
+use std::{path::PathBuf, collections::HashMap};
 use toml::{self, Table};
 use std::fs;
-use console::{Term, style};
+use crate::term;
 
 static MAMEDEP_REVISION: i64 = 0;
 
-fn depcache_load(mame: &str, dotdir: &PathBuf, _stdout: &Term) -> Result<Table, String> {
+fn depcache_load(mame: &str, dotdir: &PathBuf) -> Result<Table, String> {
 
     let mdep = dotdir.join("machine.dep");
     let mamev = Exec::shell(format!(r#"{} -help"#, mame)).capture()
@@ -17,7 +17,7 @@ fn depcache_load(mame: &str, dotdir: &PathBuf, _stdout: &Term) -> Result<Table, 
     let mut mamev3 = mamev2.unwrap().chars();
     mamev3.next_back();
     let mamever = mamev3.as_str().to_string();
-    println!("Running on {}", style(mamever.clone()).bold().cyan());
+    term::info_ext("Running on", mamever.as_str());
     
     if !mdep.exists() {
         return Err(mamever);
@@ -32,19 +32,19 @@ fn depcache_load(mame: &str, dotdir: &PathBuf, _stdout: &Term) -> Result<Table, 
     let mdp3 = mdp2.as_str();
     let depcache: Result<Table, toml::de::Error> = toml::from_str(mdp3);
     if depcache.is_err() {
-        println!("machine.dep TOML is invalid");
+        term::error_fatal("machine.dep TOML is invalid");
         return Err(mamever);
     }
 
     let dc = depcache.unwrap();
 
     if dc.get("MDEP_VER").unwrap_or(&toml::Value::Integer(-1)).as_integer() != Some(MAMEDEP_REVISION) {
-        println!("machine.dep TOML is for a different version of mame-dl2");
+        term::error_fatal("machine.dep TOML is for a different version of mame-dl2");
         return Err(mamever);
     }
 
     if dc.get("MAME_VER").unwrap_or(&toml::Value::String("---".to_string())).as_str() != Some(&mamever) {
-        println!("MAME version doesn't match");
+        term::error_fatal("MAME version doesn't match");
         return Err(mamever);
     }
 
@@ -52,40 +52,37 @@ fn depcache_load(mame: &str, dotdir: &PathBuf, _stdout: &Term) -> Result<Table, 
 
 }
 
-pub fn depcache_init(mame: &str, dotdir: &PathBuf, stdout: &Term) -> Result<Table, bool> {
+pub fn init(mame: &str, dotdir: &PathBuf) -> Result<Table, bool> {
 
-    let depcache = depcache_load(mame, dotdir, stdout);
+    let depcache = depcache_load(mame, dotdir);
     if !depcache.is_err() {
         return Ok(depcache.unwrap()); // leave if we loaded the cache
     }
 
-    println!("{}\n",style(
-r#"
-  The dependency cache could not be loaded.
-  Generating it will take about a minute.
-  This should happen on your first use of the software,
-  or when you update MAME.
-  This could take up about 2GB of RAM, though!"#).yellow().on_black());
-
-    println!("Capturing XML from 'mame -listxml'...");
-    let mxml_s = Exec::shell(format!(r#"{} -listxml"#, mame)).capture().expect("!!").stdout_str();
+    term::error_warn(r#"The dependency cache could not be loaded.
+   Generating it will take about a minute.
+   This should happen on your first use of the software,
+   or when you update MAME.
+   This could take up about 2GB of RAM, though!"#);
+    term::info("Capturing XML data from MAME...");
+    let mxml_s = Exec::shell(format!(r#"{} -listxml"#, mame)).capture().expect("Couldn't capture").stdout_str();
     let mxml = mxml_s.as_str();
-    println!("Parsing...");
+    term::info("Parsing...");
 
     let mame_xml = roxmltree::Document::parse_with_options(mxml, ParsingOptions {
         allow_dtd: true, ..Default::default()
     }).expect("Couldn't parse MAME XML.");
 
-    let gen_toml = depcache_generate_from_xml(&mame_xml, stdout, depcache.unwrap_err());
+    let gen_toml = depcache_generate_from_xml(&mame_xml, depcache.unwrap_err());
 
     fs::write(dotdir.join("machine.dep"), gen_toml).expect("Couldn't write machine dep TOML");
 
-    return Ok(depcache_load(mame, dotdir, stdout).expect("Unable to parse the generated TOML."));
+    return Ok(depcache_load(mame, dotdir).expect("Unable to parse the generated TOML."));
 
 }
 
-fn depcache_generate_from_xml(doc: &roxmltree::Document, stdout: &Term, mamever: String) -> String {
-    println!("Generating dependency cache from XML:");
+fn depcache_generate_from_xml(doc: &roxmltree::Document, mamever: String) -> String {
+    term::info_arrow("Generating dependency cache from XML");
     let mut gen_toml = String::new();
     gen_toml.push_str(r#"MAME_VER=""#);
     gen_toml.push_str(mamever.as_str());
@@ -112,9 +109,9 @@ fn depcache_generate_from_xml(doc: &roxmltree::Document, stdout: &Term, mamever:
         let mut deps: Vec<String> = Vec::new();
         let name = mi.0;
         let machine = mi.1;
-        stdout.clear_line().unwrap();
+        term::line_clear();
         print!("Resolving dependency {} / {}", m_in, m_count);
-        io::stdout().flush().unwrap();
+        term::flush();
         dep_get(&machine, &machine_index, deps.as_mut());
         if deps.len() == 0 { // if no deps were generated don't write this machine to the file
             continue;

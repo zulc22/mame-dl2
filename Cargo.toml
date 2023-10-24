@@ -4,7 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-console = "0.15.7"
+clap = "4.4.6"
+colored = "2.0.4"
 dirs = "5.0.1"
 im = "15.1.0"
 roxmltree = "0.18.1"
