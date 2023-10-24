@@ -245,6 +245,7 @@ dependencies = [
  "roxmltree",
  "subprocess",
  "toml",
+ "winreg",
  "xmlparser",
 ]
 
@@ -580,6 +581,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a3b801d0e0a6726477cc207f60162da452f3a95adb368399bef20a946e06f65c"
 dependencies = [
  "memchr",
+]
+
+[[package]]
+name = "winreg"
+version = "0.51.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "937f3df7948156640f46aacef17a70db0de5917bda9c92b0f751f3a955b588fc"
+dependencies = [
+ "cfg-if",
+ "windows-sys",
 ]
 
 [[package]]
