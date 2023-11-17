@@ -1,1 +1,1 @@
-Work in progress replacement for mame-dl
+[Moved to codeberg](https://codeberg.org/zulc22/mame-dl2)
